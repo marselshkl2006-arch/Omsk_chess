@@ -1,0 +1,6 @@
+frontend/chess
+frontend/requests
+frontend/uvicorn
+backend/__pycache__/
+*.pyc
+.env
