@@ -1,0 +1,325 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Шапка */
+.brand-header {
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 15px 0;
+}
+
+.brand-header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.region-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.title-container h1 {
+    font-size: 24px;
+    color: #003366;
+    margin: 0;
+}
+
+.chess-caption {
+    font-size: 16px;
+    color: #ff6b35;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.hashtag {
+    background: #ff6b35;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Основной контент */
+main {
+    padding: 30px 0;
+}
+
+.broadcast-info {
+    text-align: center;
+    margin-bottom: 30px;
+    color: white;
+}
+
+.event-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.broadcast-info h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Лейаут с доской */
+.chess-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 30px;
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+/* Контейнер доски */
+.board-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+#board {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Панель оператора */
+.operator-panel {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid #dee2e6;
+}
+
+.operator-panel h4 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+.move-input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.move-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: #003366;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+}
+
+.btn-primary:hover {
+    background: #0047b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 10px;
+}
+
+.status-indicator {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.dot {
+    height: 10px;
+    width: 10px;
+    background-color: #ffc107;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.dot.connected {
+    background-color: #28a745;
+}
+
+/* История ходов */
+.move-history {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.move-history h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.move-list {
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.move-item {
+    padding: 5px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.move-item:nth-child(even) {
+    background: #f1f3f5;
+}
+
+/* Боковая панель */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.qr-card {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+}
+
+.qr-card h4 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+#qrcode {
+    margin: 0 auto 15px;
+    width: 150px;
+    height: 150px;
+}
+
+.platform-links h4 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+.platform-link {
+    display: block;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    text-decoration: none;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    transition: opacity 0.3s;
+}
+
+.platform-link:hover {
+    opacity: 0.9;
+}
+
+.platform-link.lichess {
+    background: #7a4c2c;
+}
+
+.platform-link.chesscom {
+    background: #81b64c;
+}
+
+.download-section {
+    text-align: center;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 2px solid #003366;
+    color: #003366;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-outline:hover {
+    background: #003366;
+    color: white;
+}
+
+/* Подвал */
+footer {
+    background: #1a1a1a;
+    color: #999;
+    padding: 20px 0;
+    text-align: center;
+    margin-top: 50px;
+}
+
+.small {
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .chess-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .brand-header .container {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .broadcast-info h2 {
+        font-size: 24px;
+    }
+}
