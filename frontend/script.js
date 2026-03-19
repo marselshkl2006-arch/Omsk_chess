@@ -1,7 +1,7 @@
 // Конфигурация
-const WS_URL = 'ws://localhost:8000/ws';
-const API_URL = 'http://localhost:8000';
-
+const WS_URL = 'ws://localhost:8001/ws';
+const API_URL = 'http://localhost:8001';
+const PUBLIC_URL = 'http://192.168.1.52:8082/public.html'; // ваш IP
 // Состояние приложения
 let board = null;
 let game = new Chess();
