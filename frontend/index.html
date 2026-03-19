@@ -296,8 +296,12 @@
 
         #qrcode {
             margin: 0 auto 15px;
-            width: 150px;
-            height: 150px;
+            width: 200px;
+            height: 200px;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .public-link {
@@ -443,11 +447,14 @@
                     <h4>📱 Трансляция для зрителей</h4>
                     <div id="qrcode"></div>
                     <div class="public-link" id="publicUrlDisplay">
-                        http://omsk-chess.duckdns.org:8082/public.html
+                        Загрузка...
                     </div>
                     <button class="copy-btn" id="copyUrlBtn">
                         📋 Копировать ссылку
                     </button>
+                    <p style="font-size: 11px; color: #666; margin-top: 10px;">
+                        Отсканируйте QR-код или отправьте ссылку зрителям
+                    </p>
                 </div>
 
                 <!-- Информация о трансляции -->
@@ -473,10 +480,11 @@
     </footer>
 
     <script>
-        // Конфигурация
-        const API_URL = 'http://localhost:8001';
-        const WS_URL = 'ws://localhost:8001/ws';
-        const PUBLIC_URL = 'http://omsk-chess.duckdns.org:8082/public.html';
+        // Конфигурация - автоматически определяем адрес
+        const WS_URL = (window.location.protocol === 'https:' 
+            ? 'wss://' + window.location.host + '/ws'
+            : 'ws://' + window.location.host + '/ws');
+        const API_URL = window.location.protocol + '//' + window.location.host;
         
         // Состояние приложения
         let board = null;
@@ -606,6 +614,8 @@
                         if (move) {
                             $recognitionText.text(`✅ Распознан ход: ${move}`);
                             sendMoveToServer(move);
+                        } else {
+                            $recognitionText.text('Ожидание хода...');
                         }
                     }
                     previousBoardState = currentBoardState;
@@ -617,8 +627,6 @@
                 } else if (Array.isArray(predictions)) {
                     predictions.forEach(p => p.dispose());
                 }
-                
-                $debugInfo.text('Ожидание следующего кадра...');
                 
             } catch (error) {
                 console.error('Ошибка распознавания:', error);
@@ -644,7 +652,7 @@
                     const batchClasses = classes[0];
                     
                     for (let i = 0; i < batchScores.length; i++) {
-                        if (batchScores[i] > 0.5) {
+                        if (batchScores[i] > 0.7) { // Повышаем порог уверенности
                             detections.push({
                                 box: batchBoxes[i],
                                 class: batchClasses[i],
@@ -660,7 +668,7 @@
                         const det = batch[i];
                         if (det.length >= 5) {
                             const score = det[4];
-                            if (score > 0.5) {
+                            if (score > 0.7) { // Повышаем порог уверенности
                                 detections.push({
                                     box: det.slice(0, 4),
                                     class: Math.round(det[5] || 0),
@@ -671,13 +679,22 @@
                     }
                 }
                 
-                $debugInfo.text(`Распознано ${detections.length} фигур`);
+                $debugInfo.text(`Распознано ${detections.length} фигур (уверенность >70%)`);
                 
+                // Группируем детекции по клеткам - оставляем самую уверенную
+                const bestDetections = {};
                 detections.forEach(det => {
                     const square = boxToSquare(det.box);
                     if (square >= 0 && square < 64) {
-                        boardState[square] = det.class;
+                        if (!bestDetections[square] || bestDetections[square].score < det.score) {
+                            bestDetections[square] = det;
+                        }
                     }
+                });
+                
+                // Заполняем boardState лучшими детекциями
+                Object.entries(bestDetections).forEach(([square, det]) => {
+                    boardState[parseInt(square)] = det.class;
                 });
                 
                 return boardState;
@@ -722,9 +739,12 @@
             }
         }
         
-        // Определение хода по изменению состояния доски
+        // Определение хода по изменению состояния доски - ИСПРАВЛЕННАЯ ВЕРСИЯ
         function detectBoardChange(oldState, newState) {
             if (!oldState || !newState) return null;
+            
+            // Проверяем, чей сейчас ход
+            const currentTurn = game.turn(); // 'w' или 'b'
             
             const changedSquares = [];
             for (let i = 0; i < 64; i++) {
@@ -738,25 +758,45 @@
             $debugInfo.text(`Изменений: ${changedSquares.length} клеток`);
             
             if (changedSquares.length === 2) {
-                const [from, to] = changedSquares;
+                const [a, b] = changedSquares;
                 
-                if (oldState[from] !== null && newState[to] !== null) {
-                    const fromFile = String.fromCharCode(97 + (from % 8));
-                    const fromRank = 8 - Math.floor(from / 8);
-                    const toFile = String.fromCharCode(97 + (to % 8));
-                    const toRank = 8 - Math.floor(to / 8);
-                    
-                    return `${fromFile}${fromRank}${toFile}${toRank}`;
-                } else if (oldState[from] === null && newState[from] !== null && oldState[to] !== null && newState[to] === null) {
-                    const fromFile = String.fromCharCode(97 + (to % 8));
-                    const fromRank = 8 - Math.floor(to / 8);
-                    const toFile = String.fromCharCode(97 + (from % 8));
-                    const toRank = 8 - Math.floor(from / 8);
-                    
-                    return `${fromFile}${fromRank}${toFile}${toRank}`;
+                // Определяем, какая клетка была занята (from) и какая стала занята (to)
+                let from, to;
+                
+                // Проверяем оба варианта
+                if (oldState[a] !== null && newState[a] === null && oldState[b] === null && newState[b] !== null) {
+                    // Фигура переместилась с a на b
+                    from = a;
+                    to = b;
+                } else if (oldState[b] !== null && newState[b] === null && oldState[a] === null && newState[a] !== null) {
+                    // Фигура переместилась с b на a
+                    from = b;
+                    to = a;
+                } else {
+                    $debugInfo.text('Не удалось определить направление хода');
+                    return null;
                 }
+                
+                // Определяем цвет фигуры (0-5 черные, 6-11 белые)
+                const pieceClass = oldState[from];
+                const isWhitePiece = pieceClass >= 6 && pieceClass <= 11;
+                
+                // Проверяем соответствие цвета фигуры текущему ходу
+                if ((currentTurn === 'w' && !isWhitePiece) || (currentTurn === 'b' && isWhitePiece)) {
+                    $debugInfo.text(`Ход не соответствует очереди: сейчас ход ${currentTurn === 'w' ? 'белых' : 'черных'}`);
+                    return null;
+                }
+                
+                // Конвертируем индексы в шахматную нотацию
+                const fromFile = String.fromCharCode(97 + (from % 8));
+                const fromRank = 8 - Math.floor(from / 8);
+                const toFile = String.fromCharCode(97 + (to % 8));
+                const toRank = 8 - Math.floor(to / 8);
+                
+                return `${fromFile}${fromRank}${toFile}${toRank}`;
             } else if (changedSquares.length === 3) {
-                $debugInfo.text('Сложный ход (рокировка/взятие)');
+                $debugInfo.text('Сложный ход (рокировка/взятие на проходе)');
+                // TODO: добавить обработку рокировки
             }
             
             return null;
@@ -885,6 +925,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     console.log('✅ Ход отправлен:', data);
+                    updateMoveHistory();
                 } else {
                     alert('Ошибка: ' + data.message);
                     game.undo();
@@ -935,18 +976,34 @@
             if (!container) return;
             
             container.innerHTML = '';
+            
+            // Определяем URL для зрителей
+            let publicUrl;
+            const currentUrl = window.location.href;
+            
+            if (currentUrl.includes('ngrok.io')) {
+                publicUrl = currentUrl.replace('index.html', 'public.html');
+                if (!publicUrl.includes('public.html')) {
+                    publicUrl = publicUrl + (publicUrl.endsWith('/') ? 'public.html' : '/public.html');
+                }
+            } else {
+                publicUrl = 'http://' + window.location.host + '/public.html';
+            }
+            
+            $publicUrlDisplay.text(publicUrl);
+            
             const canvas = document.createElement('canvas');
             container.appendChild(canvas);
             
-            QRCode.toCanvas(canvas, PUBLIC_URL, { width: 150 }, function(error) {
+            QRCode.toCanvas(canvas, publicUrl, { width: 150 }, function(error) {
                 if (error) {
                     console.error('QR error:', error);
                     container.innerHTML = `<div style="text-align:center;">
                         <p>Ссылка для зрителей:</p>
-                        <p style="font-size:12px;">${PUBLIC_URL}</p>
+                        <p style="font-size:12px;">${publicUrl}</p>
                     </div>`;
                 } else {
-                    console.log('✅ QR-код создан для зрителей');
+                    console.log('✅ QR-код создан для:', publicUrl);
                 }
             });
         }
@@ -1002,7 +1059,8 @@
             });
             
             $('#copyUrlBtn').on('click', function() {
-                navigator.clipboard.writeText(PUBLIC_URL).then(() => {
+                const url = $('#publicUrlDisplay').text();
+                navigator.clipboard.writeText(url).then(() => {
                     alert('✅ Ссылка для зрителей скопирована!');
                 });
             });
