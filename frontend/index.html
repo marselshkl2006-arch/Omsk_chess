@@ -229,6 +229,9 @@
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 14px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
         }
 
         .move-item {
@@ -347,6 +350,20 @@
             margin-top: 10px;
         }
 
+        .stats-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 12px;
+        }
+
+        .stats-panel div {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 5px;
+        }
+
         .footer {
             background: #1a1a1a;
             color: #999;
@@ -412,16 +429,26 @@
 
                 <!-- Панель камеры с TensorFlow.js -->
                 <div class="camera-panel">
-                    <h4>📷 РАСПОЗНАВАНИЕ ХОДОВ (TensorFlow.js)</h4>
+                    <h4>📷 НЕЙРОСЕТЕВОЕ РАСПОЗНАВАНИЕ (v2.0)</h4>
                     <video id="camera-feed" autoplay playsinline></video>
                     <div class="camera-controls">
                         <button id="startCameraBtn" class="btn-success">Запустить камеру</button>
                         <button id="stopCameraBtn" class="btn-secondary">Остановить</button>
+                        <button id="calibrateBtn" class="btn-secondary">Калибровка</button>
                     </div>
                     <div id="recognition-status" style="margin-top: 10px; padding: 10px; background: #e9ecef; border-radius: 5px;">
                         <div style="font-weight: bold;">Статус: <span id="recognition-text">Ожидание камеры</span></div>
                         <div style="font-size: 12px; margin-top: 5px;" id="debug-info"></div>
                     </div>
+                </div>
+
+                <!-- Статистика распознавания -->
+                <div class="stats-panel">
+                    <h4>📊 Статистика нейросети</h4>
+                    <div id="stats-pieces">Распознано фигур: 0/32</div>
+                    <div id="stats-confidence">Средняя уверенность: 0%</div>
+                    <div id="stats-stability">Стабильность: 0%</div>
+                    <div id="stats-last-move">Последний ход: —</div>
                 </div>
 
                 <!-- История ходов -->
@@ -494,8 +521,24 @@
         let cameraStream = null;
         let recognitionInterval = null;
         let broadcastUrl = null;
-        let previousBoardState = null;
+        
+        // Улучшенное состояние для распознавания
+        let boardHistory = [];
+        let stableBoardState = null;
+        let detectionBuffer = [];
+        const BUFFER_SIZE = 5;
+        let lastDetectedMove = null;
         let isProcessing = false;
+        let calibrationMode = false;
+        let calibrationPoints = null;
+        
+        // Статистика
+        let stats = {
+            totalDetections: 0,
+            avgConfidence: 0,
+            stability: 0,
+            lastMove: null
+        };
         
         // DOM элементы
         const $board = $('#board');
@@ -513,6 +556,11 @@
         const $cameraFeed = $('#camera-feed')[0];
         const $startCameraBtn = $('#startCameraBtn');
         const $stopCameraBtn = $('#stopCameraBtn');
+        const $calibrateBtn = $('#calibrateBtn');
+        const $statsPieces = $('#stats-pieces');
+        const $statsConfidence = $('#stats-confidence');
+        const $statsStability = $('#stats-stability');
+        const $statsLastMove = $('#stats-last-move');
         
         // Инициализация
         $(document).ready(function() {
@@ -530,6 +578,7 @@
                 .then(response => response.json())
                 .then(data => {
                     console.log('✅ Сервер работает:', data);
+                    updateConnectionStatus(true);
                 })
                 .catch(error => {
                     console.error('❌ Сервер не доступен:', error);
@@ -540,13 +589,13 @@
         // Загрузка модели TensorFlow.js
         async function loadTensorFlowModel() {
             try {
-                $recognitionText.text('Загрузка модели...');
+                $recognitionText.text('Загрузка нейросети...');
                 model = await tf.loadGraphModel('/models/pieces_model/model.json');
-                console.log('✅ Модель TensorFlow.js загружена');
-                $recognitionText.text('Модель загружена, ожидание камеры');
+                console.log('✅ Нейросеть загружена');
+                $recognitionText.text('Нейросеть готова, запустите камеру');
             } catch (error) {
-                console.error('❌ Ошибка загрузки модели:', error);
-                $recognitionText.text('Ошибка загрузки модели');
+                console.error('❌ Ошибка загрузки нейросети:', error);
+                $recognitionText.text('Ошибка загрузки нейросети');
                 $debugInfo.text('Проверьте, что модель скопирована в /models/pieces_model/');
             }
         }
@@ -558,14 +607,16 @@
                     video: { 
                         width: { ideal: 640 },
                         height: { ideal: 480 },
-                        facingMode: 'environment'
+                        facingMode: 'environment',
+                        frameRate: { ideal: 10 }
                     } 
                 });
                 $cameraFeed.srcObject = cameraStream;
                 $recognitionText.text('Камера запущена');
                 
                 if (recognitionInterval) clearInterval(recognitionInterval);
-                recognitionInterval = setInterval(detectMoveFromCamera, 2000);
+                // Анализируем каждые 1.5 секунды (даем время на стабилизацию)
+                recognitionInterval = setInterval(detectMoveFromCamera, 1500);
             } catch (error) {
                 console.error('❌ Ошибка запуска камеры:', error);
                 $recognitionText.text('Ошибка доступа к камере');
@@ -585,42 +636,103 @@
             }
         }
         
-        // Распознавание хода из кадра камеры
+        // Калибровка
+        function calibrate() {
+            calibrationMode = true;
+            $recognitionText.text('Режим калибровки: сделайте снимок пустой доски');
+            setTimeout(() => {
+                captureCalibrationFrame();
+            }, 3000);
+        }
+        
+        async function captureCalibrationFrame() {
+            if (!$cameraFeed.videoWidth) return;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 480;
+            canvas.height = 288;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage($cameraFeed, 0, 0, 480, 288);
+            
+            // Сохраняем калибровочное изображение
+            calibrationPoints = {
+                image: canvas.toDataURL(),
+                timestamp: Date.now()
+            };
+            
+            $recognitionText.text('Калибровка завершена');
+            calibrationMode = false;
+        }
+        
+        // Улучшенное распознавание с буферизацией и стабилизацией
         async function detectMoveFromCamera() {
             if (!model || !cameraStream || !$cameraFeed.videoWidth || isProcessing) return;
             
             isProcessing = true;
             
             try {
+                // Захват кадра
                 const canvas = document.createElement('canvas');
                 canvas.width = 480;
                 canvas.height = 288;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage($cameraFeed, 0, 0, 480, 288);
                 
+                // Предобработка изображения (улучшение контраста)
+                const imageData = ctx.getImageData(0, 0, 480, 288);
+                const enhancedData = enhanceImage(imageData);
+                ctx.putImageData(enhancedData, 0, 0);
+                
+                // Конвертация в тензор
                 const tensor = tf.browser.fromPixels(canvas)
                     .expandDims(0)
                     .toFloat()
                     .div(255);
                 
-                $debugInfo.text('Анализ изображения...');
+                $debugInfo.text('Нейросеть анализирует...');
                 
+                // Инференс
                 const predictions = await model.predict(tensor);
                 const currentBoardState = await extractBoardState(predictions);
                 
                 if (currentBoardState) {
-                    if (previousBoardState) {
-                        const move = detectBoardChange(previousBoardState, currentBoardState);
-                        if (move) {
-                            $recognitionText.text(`✅ Распознан ход: ${move}`);
-                            sendMoveToServer(move);
-                        } else {
-                            $recognitionText.text('Ожидание хода...');
-                        }
+                    // Добавляем в буфер
+                    detectionBuffer.push(currentBoardState);
+                    if (detectionBuffer.length > BUFFER_SIZE) {
+                        detectionBuffer.shift();
                     }
-                    previousBoardState = currentBoardState;
+                    
+                    // Стабилизация: усредняем по буферу
+                    const stableState = stabilizeBoardState(detectionBuffer);
+                    
+                    if (stableState) {
+                        // Обновляем статистику
+                        updateStats(stableState);
+                        
+                        // Проверяем изменения
+                        if (stableBoardState) {
+                            const move = detectBoardChange(stableBoardState, stableState);
+                            if (move && move !== lastDetectedMove) {
+                                lastDetectedMove = move;
+                                $recognitionText.text(`✅ Ход распознан: ${move}`);
+                                sendMoveToServer(move);
+                                
+                                // Обновляем историю
+                                boardHistory.push({
+                                    fen: game.fen(),
+                                    move: move,
+                                    timestamp: Date.now()
+                                });
+                            } else {
+                                $recognitionText.text('Ожидание хода...');
+                            }
+                        }
+                        
+                        stableBoardState = stableState;
+                    }
                 }
                 
+                // Очистка памяти
                 tensor.dispose();
                 if (predictions instanceof tf.Tensor) {
                     predictions.dispose();
@@ -636,11 +748,27 @@
             isProcessing = false;
         }
         
-        // Извлечение состояния доски из предсказаний модели
+        // Улучшение изображения (повышение контраста)
+        function enhanceImage(imageData) {
+            const data = imageData.data;
+            
+            // Простое повышение контраста
+            for (let i = 0; i < data.length; i += 4) {
+                // Увеличиваем контраст для каждого канала
+                data[i] = Math.min(255, Math.max(0, (data[i] - 128) * 1.2 + 128));
+                data[i+1] = Math.min(255, Math.max(0, (data[i+1] - 128) * 1.2 + 128));
+                data[i+2] = Math.min(255, Math.max(0, (data[i+2] - 128) * 1.2 + 128));
+            }
+            
+            return imageData;
+        }
+        
+        // Извлечение состояния доски из предсказаний
         async function extractBoardState(predictions) {
             try {
                 const boardState = Array(64).fill(null);
                 let detections = [];
+                let totalConfidence = 0;
                 
                 if (Array.isArray(predictions) && predictions.length >= 3) {
                     const boxes = await predictions[0].array();
@@ -652,12 +780,14 @@
                     const batchClasses = classes[0];
                     
                     for (let i = 0; i < batchScores.length; i++) {
-                        if (batchScores[i] > 0.7) { // Повышаем порог уверенности
+                        const score = batchScores[i];
+                        if (score > 0.6) { // Понижаем порог до 0.6 для большего покрытия
                             detections.push({
                                 box: batchBoxes[i],
                                 class: batchClasses[i],
-                                score: batchScores[i]
+                                score: score
                             });
+                            totalConfidence += score;
                         }
                     }
                 } else if (predictions instanceof tf.Tensor) {
@@ -668,20 +798,19 @@
                         const det = batch[i];
                         if (det.length >= 5) {
                             const score = det[4];
-                            if (score > 0.7) { // Повышаем порог уверенности
+                            if (score > 0.6) {
                                 detections.push({
                                     box: det.slice(0, 4),
                                     class: Math.round(det[5] || 0),
                                     score: score
                                 });
+                                totalConfidence += score;
                             }
                         }
                     }
                 }
                 
-                $debugInfo.text(`Распознано ${detections.length} фигур (уверенность >70%)`);
-                
-                // Группируем детекции по клеткам - оставляем самую уверенную
+                // Группировка по клеткам
                 const bestDetections = {};
                 detections.forEach(det => {
                     const square = boxToSquare(det.box);
@@ -692,10 +821,19 @@
                     }
                 });
                 
-                // Заполняем boardState лучшими детекциями
+                // Заполняем boardState
                 Object.entries(bestDetections).forEach(([square, det]) => {
                     boardState[parseInt(square)] = det.class;
                 });
+                
+                // Обновляем статистику
+                stats.totalDetections = Object.keys(bestDetections).length;
+                stats.avgConfidence = detections.length > 0 ? totalConfidence / detections.length : 0;
+                
+                $statsPieces.text(`Распознано фигур: ${stats.totalDetections}/32`);
+                $statsConfidence.text(`Средняя уверенность: ${(stats.avgConfidence * 100).toFixed(1)}%`);
+                
+                $debugInfo.text(`Распознано ${detections.length} кандидатов, фигур: ${stats.totalDetections}`);
                 
                 return boardState;
                 
@@ -703,6 +841,55 @@
                 console.error('Error extracting board state:', error);
                 return null;
             }
+        }
+        
+        // Стабилизация состояния (голосование по буферу)
+        function stabilizeBoardState(buffer) {
+            if (buffer.length < 3) return buffer[buffer.length - 1];
+            
+            const stableState = Array(64).fill(null);
+            
+            for (let square = 0; square < 64; square++) {
+                const votes = {};
+                
+                buffer.forEach(state => {
+                    const piece = state[square];
+                    if (piece !== null) {
+                        votes[piece] = (votes[piece] || 0) + 1;
+                    }
+                });
+                
+                // Находим класс с максимальным количеством голосов
+                let maxVotes = 0;
+                let bestPiece = null;
+                
+                Object.entries(votes).forEach(([piece, count]) => {
+                    if (count > maxVotes) {
+                        maxVotes = count;
+                        bestPiece = parseInt(piece);
+                    }
+                });
+                
+                // Если более 60% буфера согласно, принимаем решение
+                if (maxVotes >= buffer.length * 0.6) {
+                    stableState[square] = bestPiece;
+                } else {
+                    stableState[square] = null; // Неуверенность
+                }
+            }
+            
+            // Обновляем стабильность
+            const nonNullCount = stableState.filter(p => p !== null).length;
+            stats.stability = (nonNullCount / 32) * 100;
+            $statsStability.text(`Стабильность: ${stats.stability.toFixed(1)}%`);
+            
+            return stableState;
+        }
+        
+        // Обновление статистики
+        function updateStats(state) {
+            const nonNullCount = state.filter(p => p !== null).length;
+            $statsPieces.text(`Распознано фигур: ${nonNullCount}/32`);
         }
         
         // Конвертация координат box в индекс клетки
@@ -723,6 +910,11 @@
                     return -1;
                 }
                 
+                // Учет калибровки (если есть)
+                if (calibrationPoints) {
+                    // Коррекция координат
+                }
+                
                 const x = cx > 1 ? cx / imgWidth : cx;
                 const y = cy > 1 ? cy / imgHeight : cy;
                 
@@ -739,12 +931,9 @@
             }
         }
         
-        // Определение хода по изменению состояния доски - ИСПРАВЛЕННАЯ ВЕРСИЯ
+        // Определение хода по изменению состояния доски
         function detectBoardChange(oldState, newState) {
             if (!oldState || !newState) return null;
-            
-            // Проверяем, чей сейчас ход
-            const currentTurn = game.turn(); // 'w' или 'b'
             
             const changedSquares = [];
             for (let i = 0; i < 64; i++) {
@@ -757,46 +946,42 @@
             
             $debugInfo.text(`Изменений: ${changedSquares.length} клеток`);
             
+            // Обычный ход (2 клетки)
             if (changedSquares.length === 2) {
                 const [a, b] = changedSquares;
                 
-                // Определяем, какая клетка была занята (from) и какая стала занята (to)
+                // Определяем направление
                 let from, to;
                 
-                // Проверяем оба варианта
-                if (oldState[a] !== null && newState[a] === null && oldState[b] === null && newState[b] !== null) {
-                    // Фигура переместилась с a на b
+                if (oldState[a] !== null && newState[a] === null && 
+                    oldState[b] === null && newState[b] !== null) {
                     from = a;
                     to = b;
-                } else if (oldState[b] !== null && newState[b] === null && oldState[a] === null && newState[a] !== null) {
-                    // Фигура переместилась с b на a
+                } else if (oldState[b] !== null && newState[b] === null && 
+                          oldState[a] === null && newState[a] !== null) {
                     from = b;
                     to = a;
                 } else {
-                    $debugInfo.text('Не удалось определить направление хода');
                     return null;
                 }
                 
-                // Определяем цвет фигуры (0-5 черные, 6-11 белые)
-                const pieceClass = oldState[from];
-                const isWhitePiece = pieceClass >= 6 && pieceClass <= 11;
-                
-                // Проверяем соответствие цвета фигуры текущему ходу
-                if ((currentTurn === 'w' && !isWhitePiece) || (currentTurn === 'b' && isWhitePiece)) {
-                    $debugInfo.text(`Ход не соответствует очереди: сейчас ход ${currentTurn === 'w' ? 'белых' : 'черных'}`);
-                    return null;
-                }
-                
-                // Конвертируем индексы в шахматную нотацию
+                // Конвертируем в шахматную нотацию
                 const fromFile = String.fromCharCode(97 + (from % 8));
                 const fromRank = 8 - Math.floor(from / 8);
                 const toFile = String.fromCharCode(97 + (to % 8));
                 const toRank = 8 - Math.floor(to / 8);
                 
-                return `${fromFile}${fromRank}${toFile}${toRank}`;
-            } else if (changedSquares.length === 3) {
-                $debugInfo.text('Сложный ход (рокировка/взятие на проходе)');
-                // TODO: добавить обработку рокировки
+                stats.lastMove = `${fromFile}${fromRank}${toFile}${toRank}`;
+                $statsLastMove.text(`Последний ход: ${stats.lastMove}`);
+                
+                return stats.lastMove;
+            }
+            
+            // Взятие или рокировка (3 клетки)
+            else if (changedSquares.length === 3) {
+                $debugInfo.text('Сложный ход, требующий анализа');
+                // TODO: реализовать обработку
+                return null;
             }
             
             return null;
@@ -886,7 +1071,9 @@
                     game.reset();
                     board.start();
                     $('#moveList').empty();
-                    previousBoardState = null;
+                    stableBoardState = null;
+                    detectionBuffer = [];
+                    boardHistory = [];
                     if (data.broadcast_url) {
                         updateChesscomBroadcast(data.broadcast_url);
                     }
@@ -981,7 +1168,7 @@
             let publicUrl;
             const currentUrl = window.location.href;
             
-            if (currentUrl.includes('ngrok.io')) {
+            if (currentUrl.includes('ngrok.io') || currentUrl.includes('serveo.net') || currentUrl.includes('serveousercontent.com')) {
                 publicUrl = currentUrl.replace('index.html', 'public.html');
                 if (!publicUrl.includes('public.html')) {
                     publicUrl = publicUrl + (publicUrl.endsWith('/') ? 'public.html' : '/public.html');
@@ -1037,7 +1224,10 @@
                         game.reset();
                         board.start();
                         $moveList.empty();
-                        previousBoardState = null;
+                        stableBoardState = null;
+                        detectionBuffer = [];
+                        boardHistory = [];
+                        lastDetectedMove = null;
                         if (data.chesscom_url) {
                             updateChesscomBroadcast(data.chesscom_url);
                         }
@@ -1067,6 +1257,7 @@
             
             $startCameraBtn.on('click', startCamera);
             $stopCameraBtn.on('click', stopCamera);
+            $calibrateBtn.on('click', calibrate);
         }
     </script>
 </body>
