@@ -3,32 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Омск - Шахматная столица | Операторская панель</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Омск - Шахматная столица | ПМЭФ-2026</title>
+    
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+    
+    <!-- Шахматные библиотеки -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    
     <style>
-        .qr-section {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .brand-header {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px 0;
+        }
+
+        .brand-header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .region-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .title-container h1 {
+            font-size: 24px;
+            color: #003366;
+            margin: 0;
+        }
+
+        .chess-caption {
+            font-size: 16px;
+            color: #ff6b35;
+            font-weight: normal;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hashtag {
+            background: #ff6b35;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        main {
+            padding: 30px 0;
+        }
+
+        .broadcast-info {
             text-align: center;
-            padding: 15px;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .event-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .broadcast-info h2 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .chess-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #board {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .operator-panel {
             background: #f8f9fa;
             border-radius: 10px;
-            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
         }
-        .qr-section h4 {
+
+        .operator-panel h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .move-input-group {
+            display: flex;
+            gap: 10px;
             margin-bottom: 10px;
-            color: #003366;
         }
+
+        .move-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #003366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #0047b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .dot {
+            height: 10px;
+            width: 10px;
+            background-color: #ffc107;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .dot.connected {
+            background-color: #28a745;
+        }
+
+        .move-history {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .move-history h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .move-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .move-item {
+            padding: 5px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .move-item:nth-child(even) {
+            background: #f1f3f5;
+        }
+
+        .chesscom-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chesscom-embed {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .chesscom-embed h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        #chesscom-frame {
+            width: 100%;
+            height: 400px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .broadcast-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .broadcast-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .broadcast-status.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .qr-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .qr-section h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
         #qrcode {
-            margin: 10px auto;
+            margin: 0 auto 15px;
             width: 150px;
             height: 150px;
-            background: white;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+
         .public-link {
-            margin-top: 10px;
             font-size: 12px;
             word-break: break-all;
             background: white;
@@ -36,6 +308,7 @@
             border-radius: 5px;
             border: 1px solid #dee2e6;
         }
+
         .copy-btn {
             background: #003366;
             color: white;
@@ -46,8 +319,47 @@
             font-size: 12px;
             margin-top: 10px;
         }
-        .copy-btn:hover {
-            background: #0047b3;
+
+        .camera-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .camera-panel h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        #camera-feed {
+            width: 100%;
+            border-radius: 5px;
+            background: #000;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .footer {
+            background: #1a1a1a;
+            color: #999;
+            padding: 20px 0;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .small {
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .chess-layout {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -55,28 +367,32 @@
     <header class="brand-header">
         <div class="container">
             <div class="logo-container">
-                <img src="assets/omsk-logo.svg" alt="Герб Омской области" class="region-logo" onerror="this.src='https://placehold.co/60x60/003366/white?text=Омск'">
+                <img src="assets/omsk-logo.svg" alt="Герб Омской области" class="region-logo" 
+                     onerror="this.src='https://placehold.co/60x60/003366/white?text=Омск'">
                 <div class="title-container">
                     <h1>Омская область</h1>
                     <h2 class="chess-caption">#ШахматнаяСтолица</h2>
                 </div>
             </div>
-            <div class="hashtag">ОПЕРАТОРСКАЯ ПАНЕЛЬ</div>
+            <div class="hashtag">ПМЭФ-2026 • Прямая трансляция</div>
         </div>
     </header>
 
     <main class="container">
         <div class="broadcast-info">
-            <div class="event-badge">ПМЭФ-2026 • Блицтурнир глав регионов</div>
-            <h2>Управление трансляцией партии Губернатора</h2>
+            <div class="event-badge">🏆 Блицтурнир глав регионов</div>
+            <h2>Губернатор Омской области на ПМЭФ-2026</h2>
         </div>
 
         <div class="chess-layout">
-            <div class="board-container">
-                <div id="board" style="width: 500px; height: 500px;"></div>
-                
+            <!-- Левая колонка: управление -->
+            <div class="control-panel">
+                <!-- Шахматная доска -->
+                <div id="board"></div>
+
+                <!-- Панель управления -->
                 <div class="operator-panel">
-                    <h4>Управление ходами</h4>
+                    <h4>🎮 Управление трансляцией</h4>
                     <div class="move-input-group">
                         <input type="text" id="moveInput" placeholder="Введите ход (например, e2e4)" class="move-input">
                         <button id="sendMoveBtn" class="btn-primary">Отправить ход</button>
@@ -90,13 +406,39 @@
                     </div>
                 </div>
 
+                <!-- Панель камеры с TensorFlow.js -->
+                <div class="camera-panel">
+                    <h4>📷 РАСПОЗНАВАНИЕ ХОДОВ (TensorFlow.js)</h4>
+                    <video id="camera-feed" autoplay playsinline></video>
+                    <div class="camera-controls">
+                        <button id="startCameraBtn" class="btn-success">Запустить камеру</button>
+                        <button id="stopCameraBtn" class="btn-secondary">Остановить</button>
+                    </div>
+                    <div id="recognition-status" style="margin-top: 10px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                        <div style="font-weight: bold;">Статус: <span id="recognition-text">Ожидание камеры</span></div>
+                        <div style="font-size: 12px; margin-top: 5px;" id="debug-info"></div>
+                    </div>
+                </div>
+
+                <!-- История ходов -->
                 <div class="move-history">
-                    <h3>Ходы партии</h3>
+                    <h3>📜 Ходы партии</h3>
                     <div id="moveList" class="move-list"></div>
                 </div>
             </div>
 
-            <div class="sidebar">
+            <!-- Правая колонка: Chess.com трансляция -->
+            <div class="chesscom-panel">
+                <!-- Встроенная трансляция Chess.com -->
+                <div class="chesscom-embed">
+                    <h4>♟️ Прямая трансляция на Chess.com</h4>
+                    <iframe id="chesscom-frame" src="" allowfullscreen></iframe>
+                    <div id="broadcastStatus" class="broadcast-status inactive">
+                        Трансляция не создана
+                    </div>
+                </div>
+
+                <!-- QR-код для зрителей -->
                 <div class="qr-section">
                     <h4>📱 Трансляция для зрителей</h4>
                     <div id="qrcode"></div>
@@ -108,104 +450,319 @@
                     </button>
                 </div>
 
-                <div class="platform-links">
-                    <h4>Смотреть на платформах</h4>
-                    <a href="#" class="platform-link lichess" id="lichessLink" style="display: none;">
-                        <span>Lichess</span>
-                    </a>
-                    <div id="broadcastStatus" class="broadcast-status">
-                        Локальная трансляция
+                <!-- Информация о трансляции -->
+                <div class="chesscom-embed">
+                    <h4>ℹ️ Информация</h4>
+                    <div style="text-align: left; padding: 10px;">
+                        <p><strong>#ОмскШахматнаяСтолица</strong></p>
+                        <p>Прямая трансляция партии Губернатора Омской области на ПМЭФ-2026.</p>
+                        <p>Турнир: Блицтурнир глав регионов</p>
+                        <p>Дата: 18 июня 2026</p>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <footer>
+    <footer class="footer">
         <div class="container">
-            <p>© 2026 Правительство Омской области. Все права защищены.</p>
+            <p>© 2026 Правительство Омской области</p>
             <p class="small">Трансляция осуществляется при поддержке Министерства цифрового развития и связи Омской области</p>
+            <p class="small">#ОмскШахматнаяСтолица • ПМЭФ-2026</p>
         </div>
     </footer>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script>
-        // Конфигурация с вашим новым доменом
-        const WS_URL = 'ws://omsk-chess.duckdns.org:8001/ws';
-        const API_URL = 'http://omsk-chess.duckdns.org:8001';
+        // Конфигурация
+        const API_URL = 'http://localhost:8001';
+        const WS_URL = 'ws://localhost:8001/ws';
         const PUBLIC_URL = 'http://omsk-chess.duckdns.org:8082/public.html';
         
+        // Состояние приложения
         let board = null;
         let game = new Chess();
         let socket = null;
-        let $board = $('#board');
-        let $moveList = $('#moveList');
-        let $connectionStatus = $('#connectionStatus');
-        let $moveInput = $('#moveInput');
-        let $sendMoveBtn = $('#sendMoveBtn');
-        let $startNewGameBtn = $('#startNewGameBtn');
-        let $downloadPgnBtn = $('#downloadPgnBtn');
-        let $lichessLink = $('#lichessLink');
-        let $broadcastStatus = $('#broadcastStatus');
+        let model = null;
+        let cameraStream = null;
+        let recognitionInterval = null;
         let broadcastUrl = null;
-
+        let previousBoardState = null;
+        let isProcessing = false;
+        
+        // DOM элементы
+        const $board = $('#board');
+        const $moveList = $('#moveList');
+        const $connectionStatus = $('#connectionStatus');
+        const $moveInput = $('#moveInput');
+        const $sendMoveBtn = $('#sendMoveBtn');
+        const $startNewGameBtn = $('#startNewGameBtn');
+        const $downloadPgnBtn = $('#downloadPgnBtn');
+        const $broadcastStatus = $('#broadcastStatus');
+        const $chesscomFrame = $('#chesscom-frame');
+        const $publicUrlDisplay = $('#publicUrlDisplay');
+        const $recognitionText = $('#recognition-text');
+        const $debugInfo = $('#debug-info');
+        const $cameraFeed = $('#camera-feed')[0];
+        const $startCameraBtn = $('#startCameraBtn');
+        const $stopCameraBtn = $('#stopCameraBtn');
+        
+        // Инициализация
         $(document).ready(function() {
             initBoard();
             initWebSocket();
             initEventListeners();
             generateQRCode();
             checkServerStatus();
+            loadTensorFlowModel();
         });
-
-        function generateQRCode() {
-            const container = document.getElementById('qrcode');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            const canvas = document.createElement('canvas');
-            container.appendChild(canvas);
-            
-            QRCode.toCanvas(canvas, PUBLIC_URL, { 
-                width: 150,
-                margin: 1,
-                color: {
-                    dark: '#003366',
-                    light: '#ffffff'
-                }
-            }, function(error) {
-                if (error) {
-                    console.error('QR error:', error);
-                    container.innerHTML = `<div style="text-align:center; padding:10px;">
-                        <p>Ссылка для зрителей:</p>
-                        <p style="font-size:12px; word-break:break-all;">${PUBLIC_URL}</p>
-                    </div>`;
-                } else {
-                    console.log('✅ QR-код создан для:', PUBLIC_URL);
-                }
-            });
-        }
-
-        function copyPublicUrl() {
-            navigator.clipboard.writeText(PUBLIC_URL).then(() => {
-                alert('✅ Ссылка скопирована! Отправьте её зрителям');
-            });
-        }
-
+        
+        // Проверка статуса сервера
         function checkServerStatus() {
             fetch(`${API_URL}/`)
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Сервер работает:', data);
+                    console.log('✅ Сервер работает:', data);
                 })
                 .catch(error => {
-                    console.error('Сервер не доступен:', error);
+                    console.error('❌ Сервер не доступен:', error);
+                    $connectionStatus.html('<span class="dot"></span> ❌ Сервер не доступен');
                 });
         }
-
+        
+        // Загрузка модели TensorFlow.js
+        async function loadTensorFlowModel() {
+            try {
+                $recognitionText.text('Загрузка модели...');
+                model = await tf.loadGraphModel('/models/pieces_model/model.json');
+                console.log('✅ Модель TensorFlow.js загружена');
+                $recognitionText.text('Модель загружена, ожидание камеры');
+            } catch (error) {
+                console.error('❌ Ошибка загрузки модели:', error);
+                $recognitionText.text('Ошибка загрузки модели');
+                $debugInfo.text('Проверьте, что модель скопирована в /models/pieces_model/');
+            }
+        }
+        
+        // Запуск камеры
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'environment'
+                    } 
+                });
+                $cameraFeed.srcObject = cameraStream;
+                $recognitionText.text('Камера запущена');
+                
+                if (recognitionInterval) clearInterval(recognitionInterval);
+                recognitionInterval = setInterval(detectMoveFromCamera, 2000);
+            } catch (error) {
+                console.error('❌ Ошибка запуска камеры:', error);
+                $recognitionText.text('Ошибка доступа к камере');
+            }
+        }
+        
+        // Остановка камеры
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                $cameraFeed.srcObject = null;
+                $recognitionText.text('Камера остановлена');
+            }
+            if (recognitionInterval) {
+                clearInterval(recognitionInterval);
+                recognitionInterval = null;
+            }
+        }
+        
+        // Распознавание хода из кадра камеры
+        async function detectMoveFromCamera() {
+            if (!model || !cameraStream || !$cameraFeed.videoWidth || isProcessing) return;
+            
+            isProcessing = true;
+            
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 480;
+                canvas.height = 288;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage($cameraFeed, 0, 0, 480, 288);
+                
+                const tensor = tf.browser.fromPixels(canvas)
+                    .expandDims(0)
+                    .toFloat()
+                    .div(255);
+                
+                $debugInfo.text('Анализ изображения...');
+                
+                const predictions = await model.predict(tensor);
+                const currentBoardState = await extractBoardState(predictions);
+                
+                if (currentBoardState) {
+                    if (previousBoardState) {
+                        const move = detectBoardChange(previousBoardState, currentBoardState);
+                        if (move) {
+                            $recognitionText.text(`✅ Распознан ход: ${move}`);
+                            sendMoveToServer(move);
+                        }
+                    }
+                    previousBoardState = currentBoardState;
+                }
+                
+                tensor.dispose();
+                if (predictions instanceof tf.Tensor) {
+                    predictions.dispose();
+                } else if (Array.isArray(predictions)) {
+                    predictions.forEach(p => p.dispose());
+                }
+                
+                $debugInfo.text('Ожидание следующего кадра...');
+                
+            } catch (error) {
+                console.error('Ошибка распознавания:', error);
+                $debugInfo.text(`Ошибка: ${error.message}`);
+            }
+            
+            isProcessing = false;
+        }
+        
+        // Извлечение состояния доски из предсказаний модели
+        async function extractBoardState(predictions) {
+            try {
+                const boardState = Array(64).fill(null);
+                let detections = [];
+                
+                if (Array.isArray(predictions) && predictions.length >= 3) {
+                    const boxes = await predictions[0].array();
+                    const scores = await predictions[1].array();
+                    const classes = await predictions[2].array();
+                    
+                    const batchBoxes = boxes[0];
+                    const batchScores = scores[0];
+                    const batchClasses = classes[0];
+                    
+                    for (let i = 0; i < batchScores.length; i++) {
+                        if (batchScores[i] > 0.5) {
+                            detections.push({
+                                box: batchBoxes[i],
+                                class: batchClasses[i],
+                                score: batchScores[i]
+                            });
+                        }
+                    }
+                } else if (predictions instanceof tf.Tensor) {
+                    const data = await predictions.array();
+                    const batch = data[0];
+                    
+                    for (let i = 0; i < batch.length; i++) {
+                        const det = batch[i];
+                        if (det.length >= 5) {
+                            const score = det[4];
+                            if (score > 0.5) {
+                                detections.push({
+                                    box: det.slice(0, 4),
+                                    class: Math.round(det[5] || 0),
+                                    score: score
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                $debugInfo.text(`Распознано ${detections.length} фигур`);
+                
+                detections.forEach(det => {
+                    const square = boxToSquare(det.box);
+                    if (square >= 0 && square < 64) {
+                        boardState[square] = det.class;
+                    }
+                });
+                
+                return boardState;
+                
+            } catch (error) {
+                console.error('Error extracting board state:', error);
+                return null;
+            }
+        }
+        
+        // Конвертация координат box в индекс клетки
+        function boxToSquare(box, imgWidth = 480, imgHeight = 288) {
+            try {
+                let cx, cy;
+                
+                if (box.length === 4) {
+                    const maxVal = Math.max(...box);
+                    if (maxVal > 10) {
+                        cx = (box[0] + box[2]) / 2;
+                        cy = (box[1] + box[3]) / 2;
+                    } else {
+                        cx = box[0];
+                        cy = box[1];
+                    }
+                } else {
+                    return -1;
+                }
+                
+                const x = cx > 1 ? cx / imgWidth : cx;
+                const y = cy > 1 ? cy / imgHeight : cy;
+                
+                const file = Math.floor(x * 8);
+                const rank = Math.floor(y * 8);
+                
+                if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
+                    return rank * 8 + file;
+                }
+                
+                return -1;
+            } catch (e) {
+                return -1;
+            }
+        }
+        
+        // Определение хода по изменению состояния доски
+        function detectBoardChange(oldState, newState) {
+            if (!oldState || !newState) return null;
+            
+            const changedSquares = [];
+            for (let i = 0; i < 64; i++) {
+                if (oldState[i] !== newState[i]) {
+                    changedSquares.push(i);
+                }
+            }
+            
+            if (changedSquares.length === 0) return null;
+            
+            $debugInfo.text(`Изменений: ${changedSquares.length} клеток`);
+            
+            if (changedSquares.length === 2) {
+                const [from, to] = changedSquares;
+                
+                if (oldState[from] !== null && newState[to] !== null) {
+                    const fromFile = String.fromCharCode(97 + (from % 8));
+                    const fromRank = 8 - Math.floor(from / 8);
+                    const toFile = String.fromCharCode(97 + (to % 8));
+                    const toRank = 8 - Math.floor(to / 8);
+                    
+                    return `${fromFile}${fromRank}${toFile}${toRank}`;
+                } else if (oldState[from] === null && newState[from] !== null && oldState[to] !== null && newState[to] === null) {
+                    const fromFile = String.fromCharCode(97 + (to % 8));
+                    const fromRank = 8 - Math.floor(to / 8);
+                    const toFile = String.fromCharCode(97 + (from % 8));
+                    const toRank = 8 - Math.floor(from / 8);
+                    
+                    return `${fromFile}${fromRank}${toFile}${toRank}`;
+                }
+            } else if (changedSquares.length === 3) {
+                $debugInfo.text('Сложный ход (рокировка/взятие)');
+            }
+            
+            return null;
+        }
+        
+        // Инициализация шахматной доски
         function initBoard() {
             var config = {
                 draggable: true,
@@ -218,31 +775,32 @@
             board = Chessboard('board', config);
             $(window).resize(board.resize);
         }
-
+        
         function onDragStart(source, piece, position, orientation) {
             if (!game) return false;
             if (game.game_over()) return false;
             if (game.turn() === 'w' && piece.search(/^b/) !== -1) return false;
             if (game.turn() === 'b' && piece.search(/^w/) !== -1) return false;
         }
-
+        
         function onDrop(source, target) {
             var move = game.move({
                 from: source,
                 to: target,
                 promotion: 'q'
             });
-
+            
             if (move === null) return 'snapback';
             
             sendMoveToServer(source + target);
             updateMoveHistory();
         }
-
+        
         function onSnapEnd() {
             board.position(game.fen());
         }
-
+        
+        // WebSocket подключение
         function initWebSocket() {
             socket = new WebSocket(WS_URL);
             
@@ -262,7 +820,7 @@
                 handleIncomingMessage(data);
             };
         }
-
+        
         function handleIncomingMessage(data) {
             switch(data.type) {
                 case 'init':
@@ -270,8 +828,7 @@
                     board.position(data.fen);
                     if (data.moves) updateMoveHistory(data.moves);
                     if (data.broadcast_url) {
-                        broadcastUrl = data.broadcast_url;
-                        updateBroadcastLink();
+                        updateChesscomBroadcast(data.broadcast_url);
                     }
                     break;
                     
@@ -289,27 +846,45 @@
                     game.reset();
                     board.start();
                     $('#moveList').empty();
+                    previousBoardState = null;
                     if (data.broadcast_url) {
-                        broadcastUrl = data.broadcast_url;
-                        updateBroadcastLink();
+                        updateChesscomBroadcast(data.broadcast_url);
                     }
                     break;
             }
         }
-
+        
+        // Обновление трансляции Chess.com
+        function updateChesscomBroadcast(url) {
+            broadcastUrl = url;
+            
+            if (url) {
+                const gameId = url.split('/').pop();
+                const embedUrl = `https://www.chess.com/game/embed/live/${gameId}`;
+                $chesscomFrame.attr('src', embedUrl);
+                $broadcastStatus.text('Трансляция активна на Chess.com')
+                    .removeClass('inactive').addClass('active');
+            } else {
+                $chesscomFrame.attr('src', '');
+                $broadcastStatus.text('Трансляция не создана')
+                    .removeClass('active').addClass('inactive');
+            }
+            
+            $publicUrlDisplay.text(url || 'Трансляция не создана');
+            generateQRCode();
+        }
+        
+        // Отправка хода на сервер
         function sendMoveToServer(moveUci) {
             fetch(`${API_URL}/move`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ move: moveUci })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
                     console.log('✅ Ход отправлен:', data);
-                    if (data.is_game_over) {
-                        alert(`Игра окончена! ${data.result || 'Ничья'}`);
-                    }
                 } else {
                     alert('Ошибка: ' + data.message);
                     game.undo();
@@ -317,12 +892,13 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error sending move:', error);
                 game.undo();
                 board.position(game.fen());
             });
         }
-
+        
+        // Обновление статуса подключения
         function updateConnectionStatus(connected) {
             const $dot = $connectionStatus.find('.dot');
             if (connected) {
@@ -333,22 +909,13 @@
                 $connectionStatus.find('span:last').text(' Отключено от сервера');
             }
         }
-
-        function updateBroadcastLink() {
-            if (broadcastUrl) {
-                $lichessLink.attr('href', broadcastUrl).show();
-                $broadcastStatus.text('Трансляция активна').css('color', '#28a745');
-            } else {
-                $lichessLink.hide();
-                $broadcastStatus.text('Локальная трансляция').css('color', '#003366');
-            }
-        }
-
+        
+        // Обновление истории ходов
         function updateMoveHistory(moves) {
             $moveList.empty();
             (moves || game.history()).forEach((move, index) => addMoveToHistory(move, index));
         }
-
+        
         function addMoveToHistory(move, index) {
             const moveNumber = Math.floor(index/2) + 1;
             if (index % 2 === 0) {
@@ -361,7 +928,30 @@
             }
             $moveList.scrollTop($moveList[0].scrollHeight);
         }
-
+        
+        // Генерация QR-кода для зрителей
+        function generateQRCode() {
+            const container = document.getElementById('qrcode');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+            
+            QRCode.toCanvas(canvas, PUBLIC_URL, { width: 150 }, function(error) {
+                if (error) {
+                    console.error('QR error:', error);
+                    container.innerHTML = `<div style="text-align:center;">
+                        <p>Ссылка для зрителей:</p>
+                        <p style="font-size:12px;">${PUBLIC_URL}</p>
+                    </div>`;
+                } else {
+                    console.log('✅ QR-код создан для зрителей');
+                }
+            });
+        }
+        
+        // Инициализация обработчиков событий
         function initEventListeners() {
             $sendMoveBtn.on('click', function() {
                 const moveUci = $moveInput.val().trim();
@@ -370,18 +960,18 @@
                     $moveInput.val('');
                 }
             });
-
+            
             $moveInput.on('keypress', function(e) {
                 if (e.which === 13) $sendMoveBtn.click();
             });
-
+            
             $startNewGameBtn.on('click', function() {
                 const white = prompt('Имя белых:', 'Губернатор Омской области') || 'Губернатор Омской области';
                 const black = prompt('Имя черных:', 'Соперник') || 'Соперник';
                 
                 fetch(`${API_URL}/start-game`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ white, black })
                 })
                 .then(response => response.json())
@@ -390,14 +980,14 @@
                         game.reset();
                         board.start();
                         $moveList.empty();
-                        if (data.lichess_url) {
-                            broadcastUrl = data.lichess_url;
-                            updateBroadcastLink();
+                        previousBoardState = null;
+                        if (data.chesscom_url) {
+                            updateChesscomBroadcast(data.chesscom_url);
                         }
                     }
                 });
             });
-
+            
             $downloadPgnBtn.on('click', function() {
                 fetch(`${API_URL}/pgn`)
                     .then(response => response.json())
@@ -410,9 +1000,15 @@
                         a.click();
                     });
             });
-
-            $('#copyUrlBtn').on('click', copyPublicUrl);
-            $lichessLink.hide();
+            
+            $('#copyUrlBtn').on('click', function() {
+                navigator.clipboard.writeText(PUBLIC_URL).then(() => {
+                    alert('✅ Ссылка для зрителей скопирована!');
+                });
+            });
+            
+            $startCameraBtn.on('click', startCamera);
+            $stopCameraBtn.on('click', stopCamera);
         }
     </script>
 </body>
